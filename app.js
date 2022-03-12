@@ -6,7 +6,10 @@ const express = require("express")
 const bodyparser = require("body-parser")
 const ejs =require("ejs")
 const mongoose= require("mongoose")
-const encrypt = require("mongoose-encryption")
+//const encrypt = require("mongoose-encryption")
+//const md5= require("md5")
+const bcrypt = require("bcrypt")
+const saltRounds =10;
 const app= express()
 
 
@@ -24,7 +27,7 @@ const userSchema = new mongoose.Schema({
 });
 
 //level 2 encrypt the data in the db with a secret encoding from env variable
-userSchema.plugin(encrypt,{secret : process.env.SECRET,encryptedFields : ["password"]});
+//userSchema.plugin(encrypt,{secret : process.env.SECRET,encryptedFields : ["password"]});
 
 const User = new mongoose.model("User", userSchema);
 
@@ -43,9 +46,12 @@ app.post("/login",function(req,res){
     if(err){
       console.log(err)
     }else{
-      if(founduser.password === password){
-        res.render("secrets")
-      }
+      //checking if the bcrypt password with the saltRounds and the hashes is the same as the user req 
+      bcrypt.compare(password, founduser.password, function(err, result) {
+        if(result ===true){
+                res.render("secrets")
+        }
+})
     }
   })
 })
@@ -56,17 +62,23 @@ app.get("/register",function(req,res){
 
 
 app.post("/register",function(req,res){
-  const newuser = new User ({
-    email : req.body.username,
-    password: req.body.password
-  })
-  newuser.save(function(err){
-    if(err){
-      console.log(err)
-    }else{
-      res.render("secrets")
-    }
-  })
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        if(!err){
+          const newuser = new User ({
+            email : req.body.username,
+            password: hash
+          })
+          newuser.save(function(err){
+            if(err){
+              console.log(err)
+            }else{
+              res.render("secrets")
+            }
+          })
+        }else{
+          console.log(err)
+        }
+   });
 })
 
 app.get("/submit",function(req,res){
